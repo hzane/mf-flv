@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <PropertyPageSchema
+      Include="$(MSBuildThisFileDirectory)$(MSBuildThisFileName).xml" />
+    <AvailableItemName
+      Include="GenGetOpt">
+      <Targets>_GenGetOpt</Targets>
+    </AvailableItemName>
+  </ItemGroup>
+  <UsingTask
+    TaskName="GenGetOpt"
+    TaskFactory="XamlTaskFactory"
+    AssemblyName="Microsoft.Build.Tasks.v4.0">
+    <Task>$(MSBuildThisFileDirectory)$(MSBuildThisFileName).xml</Task>
+  </UsingTask>
+  <Target
+    Name="_GenGetOpt"
+    BeforeTargets="$(GenGetOptBeforeTargets)"
+    AfterTargets="$(GenGetOptAfterTargets)"
+    Condition="'@(GenGetOpt)' != ''"
+    DependsOnTargets="$(GenGetOptDependsOn);ComputeGetGetOptOutput"
+    Outputs="%(GenGetOpt.Outputs)"
+    Inputs="%(GenGetOpt.Identity);%(GenGetOpt.AdditionalDependencies);$(MSBuildProjectFile)"
+    >
+    <ItemGroup
+      Condition="'@(SelectedFiles)' != ''">
+      <Foobar_builder
+        Remove="@(GenGetOpt)"
+        Condition="'%(Identity)' != '@(SelectedFiles)'" />
+    </ItemGroup>
+    <ItemGroup>
+      <GenGetOpt_inputs Include="%(GenGetOpt.AdditionalDependencies)"/>
+    </ItemGroup>
+    <ItemGroup>
+      <GenGetOpt_tlog
+        Include="%(GenGetOpt.Outputs)"
+        Condition="'%(GenGetOpt.Outputs)' != '' and '%(GenGetOpt.ExcludedFromBuild)' != 'true'">
+        <Source>@(GenGetOpt, '|')</Source>
+        <Inputs>@(GenGetOpt_inputs, ';')</Inputs>
+      </GenGetOpt_tlog>
+    </ItemGroup>
+    <Message
+      Importance="High"
+      Text="Preprocessing: %(GenGetOpt.Filename).foo -&gt; %(GenGetOpt.Filename).cpp (Include name: %(GenGetOpt.IncludeName))" />
+    <Message
+      Importance="High"
+      Text="%(GenGetOpt.ExecutionDescription)" />
+    <WriteLinesToFile
+      Condition="'@(GenGetOpt_tlog)' != '' and '%(GenGetOpt_tlog.ExcludedFromBuild)' != 'true'"
+      File="$(IntDir)$(ProjectName).write.1.tlog"
+      Lines="^%(GenGetOpt_tlog.Source);@(GenGetOpt_tlog-&gt;'%(Fullpath)')" />
+    <WriteLinesToFile
+      Condition="'@(GenGetOpt_tlog)' != '' and '%(GenGetOpt_tlog.ExcludedFromBuild)' != 'true'"
+      File="$(IntDir)$(ProjectName).read.1.tlog"
+      Lines="^%(GenGetOpt_tlog.FullPath);%(GenGetOpt_tlog.Inputs)" />
+    <GenGetOpt
+      Condition="'@(GenGetOpt)' != '' and '%(GenGetOpt.ExcludedFromBuild)' != 'true'"
+      CommandLineTemplate="%(GenGetOpt.CommandLineTemplate)"
+      IncludeName="%(GenGetOpt.IncludeName)"
+      AdditionalOptions="%(GenGetOpt.AdditionalOptions)"
+      StandardOutputImportance="High"
+      StandardErrorImportance="High"
+      EchoOff="true"
+      Inputs="%(GenGetOpt.Identity)" />
+  </Target>
+  <PropertyGroup>
+    <ComputeLinkInputsTargets>
+            $(ComputeLinkInputsTargets);
+            ComputeGenGetOptOutput;
+          </ComputeLinkInputsTargets>
+    <ComputeLibInputsTargets>
+            $(ComputeLibInputsTargets);
+            ComputeGenGetOptOutput;
+          </ComputeLibInputsTargets>
+  </PropertyGroup>
+  <Target
+    Name="ComputeGenGetOptOutput"
+    Condition="'@(GenGetOpt)' != ''">
+    <ItemGroup>
+      <GenGetOpt>
+        <AdditionalDependencies>%(RootDir)%(Directory)%(IncludeName).bar</AdditionalDependencies>
+      </GenGetOpt>
+      <GenGetOpt Condition="Exists(@(GenGetOpt-&gt;'%(RootDir)%(Directory)%(IncludeName).blah'))">
+        <AdditionalDependencies>%(AdditionalDependencies);%(RootDir)%(Directory)%(IncludeName).blah</AdditionalDependencies>
+      </GenGetOpt>
+    </ItemGroup>
+    <ItemGroup>
+      <GenGetOptDirsToMake
+        Condition="'@(GenGetOpt)' != '' and '%(GenGetOpt.ExcludedFromBuild)' != 'true'"
+        Include="%(GenGetOpt.Outputs)" />
+      <Link
+        Include="%(GenGetOptDirsToMake.Identity)"
+        Condition="'%(Extension)'=='.obj' or '%(Extension)'=='.res' or '%(Extension)'=='.rsc' or '%(Extension)'=='.lib'" />
+      <Lib
+        Include="%(GenGetOptDirsToMake.Identity)"
+        Condition="'%(Extension)'=='.obj' or '%(Extension)'=='.res' or '%(Extension)'=='.rsc' or '%(Extension)'=='.lib'" />
+      <ImpLib
+        Include="%(GenGetOptDirsToMake.Identity)"
+        Condition="'%(Extension)'=='.obj' or '%(Extension)'=='.res' or '%(Extension)'=='.rsc' or '%(Extension)'=='.lib'" />
+    </ItemGroup>
+    <MakeDir
+      Directories="@(GenGetOptDirsToMake-&gt;'%(RootDir)%(Directory)')" />
+  </Target>
+</Project>

@@ -1,0 +1,9 @@
+#pragma once
+#include <cstdint>
+#include <cassert>
+#include <vector>
+#include <memory>
+#include <mutex>
+#include <ppltasks.h>
+#include "async_return.hpp"
+#include "scatter_tar_file.hpp"

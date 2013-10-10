@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <CPPREST_ROOT>../deps/casablanca/</CPPREST_ROOT>
+    <CPPREST_LIBNAME>cpprest120_1_1.lib</CPPREST_LIBNAME>
+  </PropertyGroup>
+  <PropertyGroup>
+    <IncludePath>$(CPPREST_ROOT)include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(CPPREST_ROOT)libs\$(PlatformTarget);$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalDependencies>$(CPPREST_LIBNAME);%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <CustomBuild />
+    <CustomBuildStep />
+    <CustomBuildStep />
+    <CustomBuildStep />
+    <CustomBuildStep />
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <BuildMacro Include="CPPREST_ROOT">
+      <Value>$(CPPREST_ROOT)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="CPPREST_LIBNAME">
+      <Value>$(CPPREST_LIBNAME)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+  </ItemGroup>
+</Project>

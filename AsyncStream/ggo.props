@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup
+    Condition="'$(GenGetOptBeforeTargets)' == '' and '$(GenGetOptAfterTargets)' == '' and '$(ConfigurationType)' != 'Makefile'">
+    <GenGetOptBeforeTargets>Midl</GenGetOptBeforeTargets>
+    <GenGetOptAfterTargets>CustomBuild</GenGetOptAfterTargets>
+  </PropertyGroup>
+  <PropertyGroup>
+    <GenGetOptDependsOn
+      Condition="'$(ConfigurationType)' != 'Makefile'">_SelectedFiles;$(GenGetOptDependsOn)</GenGetOptDependsOn>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <GenGetOpt>
+      <CommandLineTemplate>gengetopt.exe [AllOptions] [AdditionalOptions] -G -i [Inputs]</CommandLineTemplate>
+      <Outputs>$(ItemDir)cmdline.c;$(ItemDir)cmdline.h</Outputs>
+    </GenGetOpt>
+  </ItemDefinitionGroup>
+</Project>

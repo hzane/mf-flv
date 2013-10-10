@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<VisualStudioToolFile
+	Name="GenGetOpt"
+	Version="8.00"
+	>
+	<Rules>
+		<CustomBuildRule
+			Name="GnuOptionsGenerator"
+			DisplayName="GNU Options Generator"
+			CommandLine="gengetopt.exe [AllOptions] [AdditionalOptions] -G -i [Inputs]"
+			Outputs="$(ItemDir)cmdline.c;$(ItemDir)cmdline.h"
+			FileExtensions="*.ggo"
+			ExecutionDescription="Generating cmdline.[ch]... $(InputName).ggo -&gt; $(ItemDir)cmdline.[ch]"
+			>
+		</CustomBuildRule>
+	</Rules>
+</VisualStudioToolFile>
