@@ -12,5 +12,7 @@
 #include "constants.hpp"
 //#include <cpprest/filestream.h>
 
-
-// TODO: reference additional headers your program requires here
+namespace dbg {
+  void log(const char*fmt, ...);
+  void log(const wchar_t*fmt, ...);
+}

@@ -177,18 +177,14 @@
     <ClCompile Include="AsyncStream.cpp" />
     <ClCompile Include="ranges.cpp" />
     <ClCompile Include="stdafx.cpp" />
-    <ClCompile Include="tarstream.cpp" />
+    <ClCompile Include="scatter_tar_file.cpp" />
     <ClCompile Include="tar_file.cpp" />
     <ClCompile Include="tar_page.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="AsyncStream.ggo">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">gengetopt -G -i %(FullPath) -F cmdline</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">./cmdline.c;./cmdline.h;%(Outputs)</Outputs>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">creating command line opt parsers...</Message>
-    </CustomBuild>
+    <None Include="AsyncStream.ggo" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
 </Project>

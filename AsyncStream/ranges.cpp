@@ -18,7 +18,7 @@ wstring request_range::to_string()const {
   return buf;
 }
 
-response_range error_response_range(int32_t code);
+response_range error_response_range(int64_t code);
 // bytes [sp] head-tail/instance_length
 // bytes [sp] */*
 response_range response_range_decoder::decode(std::wstring const&s) {

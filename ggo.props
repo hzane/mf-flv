@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup
+    Condition="'$(GetOptionGeneratorBeforeTargets)' == '' and '$(GetOptionGeneratorAfterTargets)' == '' and '$(ConfigurationType)' != 'Makefile'">
+    <GetOptionGeneratorBeforeTargets>Midl</GetOptionGeneratorBeforeTargets>
+    <GetOptionGeneratorAfterTargets>CustomBuild</GetOptionGeneratorAfterTargets>
+  </PropertyGroup>
+  <PropertyGroup>
+    <GetOptionGeneratorDependsOn
+      Condition="'$(ConfigurationType)' != 'Makefile'">_SelectedFiles;$(GetOptionGeneratorDependsOn)</GetOptionGeneratorDependsOn>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <GetOptionGenerator>
+      <CommandLineTemplate>gengetopt.exe -G -i "%(RootDir)%(Directory)%(Filename).ggo"</CommandLineTemplate>
+      <Outputs>%(RootDir)%(Directory)%(cmdline).c;%(RootDir)%(Directory)%(cmdline).h</Outputs>
+    </GetOptionGenerator>
+  </ItemDefinitionGroup>
+</Project>

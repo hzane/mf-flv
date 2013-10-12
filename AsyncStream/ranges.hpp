@@ -10,7 +10,7 @@ struct request_range{
 
   uint64_t size()const;
   bool     empty()const;
-  int32_t  error_code()const;
+  int64_t  error_code()const;
   request_range() = default;
   request_range operator*(uint32_t scale)const;
   request_range operator/(uint32_t scale)const;
@@ -31,11 +31,11 @@ struct response_range_decoder {
   response_range decode(wstring const&s);
 };
 
-inline request_range error_request_range(int32_t errcode){
+inline request_range error_request_range(int64_t errcode) {
   auto v = uint64_t(errcode | make_sure_negative);
   return request_range{v, v -1};
 }
-inline response_range error_response_range(int32_t errcode){
+inline response_range error_response_range(int64_t errcode) {
   auto v = uint64_t(errcode | make_sure_negative);
   return response_range{v, v-1, 0};
 }
@@ -44,10 +44,10 @@ inline response_range::response_range(uint64_t h, uint64_t t, uint64_t insl) : r
 
 }
 
-inline int32_t request_range::error_code()const {
+inline int64_t request_range::error_code()const {
   if (head <= tail)
     return 0;
-  return int32_t(head);
+  return int64_t(head);
 }
 
 inline request_range request_range::operator*(uint32_t scale)const {

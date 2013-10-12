@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <PropertyPageSchema
+      Include="$(MSBuildThisFileDirectory)$(MSBuildThisFileName).xml" />
+    <AvailableItemName
+      Include="GetOptionGenerator">
+      <Targets>_GetOptionGenerator</Targets>
+    </AvailableItemName>
+  </ItemGroup>
+  <UsingTask
+    TaskName="GetOptionGenerator"
+    TaskFactory="XamlTaskFactory"
+    AssemblyName="Microsoft.Build.Tasks.v4.0">
+    <Task>$(MSBuildThisFileDirectory)$(MSBuildThisFileName).xml</Task>
+  </UsingTask>
+  <Target
+    Name="_GetOptionGenerator"
+    BeforeTargets="$(GetOptionGeneratorBeforeTargets)"
+    AfterTargets="$(GetOptionGeneratorAfterTargets)"
+    Condition="'@(GetOptionGenerator)' != ''"
+    DependsOnTargets="$(GetOptionGeneratorDependsOn);ComputeGetOptionGeneratorOutput"
+    Outputs="%(GetOptionGenerator.Outputs)"
+    Inputs="%(GetOptionGenerator.Identity);%(GetOptionGenerator.AdditionalDependencies);$(MSBuildProjectFile)"
+    >
+    <ItemGroup
+      Condition="'@(SelectedFiles)' != ''">
+      <GetOptionGenerator
+        Remove="@(GetOptionGenerator)"
+        Condition="'%(Identity)' != '@(SelectedFiles)'" />
+    </ItemGroup>
+    <ItemGroup>
+      <GetOptionGenerator_inputs Include="%(GetOptionGenerator.AdditionalDependencies)"/>
+    </ItemGroup>
+    <ItemGroup>
+      <GetOptionGenerator_tlog
+        Include="%(GetOptionGenerator.Outputs)"
+        Condition="'%(GetOptionGenerator.Outputs)' != '' and '%(GetOptionGenerator.ExcludedFromBuild)' != 'true'">
+        <Source>@(GetOptionGenerator, '|')</Source>
+        <Inputs>@(GetOptionGenerator_inputs, ';')</Inputs>
+      </GetOptionGenerator_tlog>
+    </ItemGroup>
+    <Message
+      Importance="High"
+      Text="Preprocessing: %(GetOptionGenerator.Filename).ggo -&gt; cmdline.[ch]" />
+    <Message
+      Importance="High"
+      Text="%(GetOptionGenerator.ExecutionDescription)" />
+    <WriteLinesToFile
+      Condition="'@(GetOptionGenerator_tlog)' != '' and '%(GetOptionGenerator_tlog.ExcludedFromBuild)' != 'true'"
+      File="$(IntDir)$(ProjectName).write.1.tlog"
+      Lines="^%(GetOptionGenerator_tlog.Source);@(GetOptionGenerator_tlog-&gt;'%(Fullpath)')" />
+    <WriteLinesToFile
+      Condition="'@(GetOptionGenerator_tlog)' != '' and '%(GetOptionGenerator_tlog.ExcludedFromBuild)' != 'true'"
+      File="$(IntDir)$(ProjectName).read.1.tlog"
+      Lines="^%(GetOptionGenerator_tlog.FullPath);%(GetOptionGenerator_tlog.Inputs)" />
+    <GetOptionGenerator
+      Condition="'@(GetOptionGenerator)' != '' and '%(GetOptionGenerator.ExcludedFromBuild)' != 'true'"
+      CommandLineTemplate="%(GetOptionGenerator.CommandLineTemplate)"
+      AdditionalOptions="%(GetOptionGenerator.AdditionalOptions)"
+      StandardOutputImportance="High"
+      StandardErrorImportance="High"
+      EchoOff="true"
+      Inputs="%(GetOptionGenerator.Identity)" />
+  </Target>
+  <PropertyGroup>
+    <ComputeLinkInputsTargets>
+            $(ComputeLinkInputsTargets);
+            ComputeGetOptionGeneratorOutput;
+          </ComputeLinkInputsTargets>
+    <ComputeLibInputsTargets>
+            $(ComputeLibInputsTargets);
+            ComputeGetOptionGeneratorOutput;
+          </ComputeLibInputsTargets>
+  </PropertyGroup>
+  <Target
+    Name="ComputeGetOptionGeneratorOutput"
+    Condition="'@(GetOptionGenerator)' != ''">
+    <ItemGroup>
+      <GetOptionGeneratorDirsToMake
+        Condition="'@(GetOptionGenerator)' != '' and '%(GetOptionGenerator.ExcludedFromBuild)' != 'true'"
+        Include="%(GetOptionGenerator.Outputs)" />
+      <Link
+        Include="%(GetOptionGeneratorDirsToMake.Identity)"
+        Condition="'%(Extension)'=='.obj' or '%(Extension)'=='.res' or '%(Extension)'=='.rsc' or '%(Extension)'=='.lib'" />
+      <Lib
+        Include="%(GetOptionGeneratorDirsToMake.Identity)"
+        Condition="'%(Extension)'=='.obj' or '%(Extension)'=='.res' or '%(Extension)'=='.rsc' or '%(Extension)'=='.lib'" />
+      <ImpLib
+        Include="%(GetOptionGeneratorDirsToMake.Identity)"
+        Condition="'%(Extension)'=='.obj' or '%(Extension)'=='.res' or '%(Extension)'=='.rsc' or '%(Extension)'=='.lib'" />
+    </ItemGroup>
+    <MakeDir
+      Directories="@(GetOptionGeneratorDirsToMake-&gt;'%(RootDir)%(Directory)')" />
+  </Target>
+</Project>

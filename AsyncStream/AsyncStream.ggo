@@ -7,6 +7,7 @@ usage "use --help"
      
 #args "<command line options>"
 option "verbose"     v  "verbose mode"  flag    off
+option "url"	u	"downloading url" string default="http://www.baidu.com" no
 
 #option <long> <short> "<desc>"
 #{details="<detailed description>"}

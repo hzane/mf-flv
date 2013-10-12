@@ -28,10 +28,14 @@ struct gengetopt_args_info
   const char *version_help; /* Print version and exit help description.  */
   int verbose_flag;	/* verbose mode (default=off).  */
   const char *verbose_help; /* verbose mode help description.  */
+  char * url_arg;	/* downloading url (default='http://www.baidu.com').  */
+  char * url_orig;	/* downloading url original value given at command line.  */
+  const char *url_help; /* downloading url help description.  */
   
   int help_given ;	/* Whether help was given.  */
   int version_given ;	/* Whether version was given.  */
   int verbose_given ;	/* Whether verbose was given.  */
+  int url_given ;	/* Whether url was given.  */
 
 } ;
 

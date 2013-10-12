@@ -1,14 +1,14 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <ProjectSchemaDefinitions xmlns="clr-namespace:Microsoft.Build.Framework.XamlTypes;assembly=Microsoft.Build.Framework" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sys="clr-namespace:System;assembly=mscorlib" xmlns:transformCallback="Microsoft.Cpp.Dev10.ConvertPropertyCallback">
   <Rule
-    Name="GnuOptGenerator"
+    Name="GetOptionGenerator"
     PageTemplate="tool"
-    DisplayName="GNU Options Generator"
+    DisplayName="GetOption Generator"
     Order="200">
     <Rule.DataSource>
       <DataSource
         Persistence="ProjectFile"
-        ItemType="GGO" />
+        ItemType="GetOptionGenerator" />
     </Rule.DataSource>
     <Rule.Categories>
       <Category
@@ -33,24 +33,24 @@
       <StringListProperty.DataSource>
         <DataSource
           Persistence="ProjectFile"
-          ItemType="GGO"
+          ItemType="GetOptionGenerator"
           SourceType="Item" />
       </StringListProperty.DataSource>
     </StringListProperty>
     <StringProperty
-      Name="IncludeName"
-      Subcategory="GGO"
+      Name="GeneratedName"
+      Subcategory="Ggo"
       HelpContext="0"
-      DisplayName="Include Name"
-      Description="GGO"
-      Switch="[value]" />
+      DisplayName="Generated Name"
+      Description="Ggo"
+      Switch="-F [value]" />
     <StringProperty
       Name="CommandLineTemplate"
       DisplayName="Command Line"
       Visible="False"
       IncludeInCommandLine="False" />
     <DynamicEnumProperty
-      Name="GenGetOptBeforeTargets"
+      Name="GetOptionGeneratorBeforeTargets"
       Category="General"
       EnumProvider="Targets"
       IncludeInCommandLine="False">
@@ -63,7 +63,7 @@
       <DynamicEnumProperty.ProviderSettings>
         <NameValuePair
           Name="Exclude"
-          Value="^GenGetOptBeforeTargets|^Compute" />
+          Value="^GetOptionGeneratorBeforeTargets|^Compute" />
       </DynamicEnumProperty.ProviderSettings>
       <DynamicEnumProperty.DataSource>
         <DataSource
@@ -72,7 +72,7 @@
       </DynamicEnumProperty.DataSource>
     </DynamicEnumProperty>
     <DynamicEnumProperty
-      Name="GenGetOptAfterTargets"
+      Name="GetOptionGeneratorAfterTargets"
       Category="General"
       EnumProvider="Targets"
       IncludeInCommandLine="False">
@@ -85,7 +85,7 @@
       <DynamicEnumProperty.ProviderSettings>
         <NameValuePair
           Name="Exclude"
-          Value="^GenGetOptAfterTargets|^Compute" />
+          Value="^GetOptionGeneratorAfterTargets|^Compute" />
       </DynamicEnumProperty.ProviderSettings>
       <DynamicEnumProperty.DataSource>
         <DataSource
@@ -122,13 +122,13 @@
     </StringProperty>
   </Rule>
   <ItemType
-    Name="GGO"
-    DisplayName="GUN Generating Options File" />
+    Name="GetOptionGenerator"
+    DisplayName="GetOption Generator" />
   <FileExtension
     Name="*.ggo"
-    ContentType="GGO" />
+    ContentType="GetOptionGenerator" />
   <ContentType
-    Name="GGO"
-    DisplayName="GNU Generating Options File"
-    ItemType="GGO" />
+    Name="GetOptionGenerator"
+    DisplayName="GetOption Generator"
+    ItemType="GetOptionGenerator" />
 </ProjectSchemaDefinitions>

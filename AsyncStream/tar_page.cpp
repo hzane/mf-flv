@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "tar_page.hpp"
-
-int32_t CloseTempFile(HANDLE h);  // close and delete it
+using dbg::log;
+int64_t CloseTempFile(HANDLE h);  // close and delete it
 HANDLE  CreateTempFile(const wchar_t* prefix);
 void CALLBACK PageIoCallback(PTP_CALLBACK_INSTANCE,
                              void*,
@@ -19,7 +19,7 @@ tar_page::~tar_page() {
   (void)close();
 }
 
-int32_t tar_page::close() {
+int64_t tar_page::close() {
   if (_handle == INVALID_HANDLE_VALUE)
     return 0;
 
@@ -32,7 +32,7 @@ int32_t tar_page::close() {
 }
 
 struct overlapped_ext : OVERLAPPED{
-  using event_t = concurrency::task_completion_event<int32_t>;
+  using event_t = concurrency::task_completion_event<int64_t>;
   event_t task_event;
   overlapped_ext(uint64_t startat);
 };
@@ -43,14 +43,14 @@ overlapped_ext::overlapped_ext(uint64_t startat) {
   OffsetHigh = (uint32_t)(startat >> 32);
 }
 
-read_task tar_page::async_read(uint64_t start, uint32_t size, uint8_t*buffer){
+read_task tar_page::async_read(uint64_t start, uint64_t size, uint8_t*buffer) {
   if (tp_io == nullptr || _handle == INVALID_HANDLE_VALUE) {  // create temp file failed
     return concurrency::task_from_result<read_result>(NTE_INVALID_HANDLE);
   }
 
   auto ovex = new overlapped_ext(start);
   StartThreadpoolIo(tp_io);
-  auto v = ReadFile(_handle, buffer, size, nullptr, ovex);
+  auto v = ReadFile(_handle, buffer, (uint32_t)size, nullptr, ovex);
   assert(!v);  // no skip successful io
   auto t = read_task(ovex->task_event);
   auto c = GetLastError();
@@ -62,17 +62,17 @@ read_task tar_page::async_read(uint64_t start, uint32_t size, uint8_t*buffer){
   return t;
 }
 
-write_task tar_page::async_write(uint64_t start, uint32_t size, uint8_t const*data){
+write_task tar_page::async_write(uint64_t start, uint64_t size, uint8_t const*data) {
   if (tp_io == nullptr || _handle == INVALID_HANDLE_VALUE) {  // create temp file failed
     return concurrency::task_from_result<write_result>(NTE_INVALID_HANDLE);
   }
   auto ovex = new overlapped_ext(start);
+  auto t = write_task(ovex->task_event);
   StartThreadpoolIo(tp_io);
-  auto v = WriteFile(_handle, data, size, nullptr, ovex);
+  auto v = WriteFile(_handle, data, (uint32_t)size, nullptr, ovex);
   assert(!v);  // no skip successful io
   auto c = GetLastError();
 
-  auto t = write_task(ovex->task_event);
   if (c != ERROR_IO_PENDING){
     CancelThreadpoolIo(tp_io);
     ovex->task_event.set(c | make_sure_negative);
@@ -90,7 +90,7 @@ void CALLBACK PageIoCallback(PTP_CALLBACK_INSTANCE,
   auto ov = (LPOVERLAPPED)overlapped;
   auto ovex = static_cast<overlapped_ext*>(ov);
   assert(ovex);
-  ovex->task_event.set(ioresult ? (ioresult | make_sure_negative) : xfered);
+  ovex->task_event.set(ioresult ? (ioresult | make_sure_negative) : (uint32_t)xfered);
   delete ovex;
 }
 
@@ -104,6 +104,7 @@ HANDLE CreateTempFile(const wchar_t* prefix){
   l = GetTempFileName(tmp, prefix, 0, file_name);
   if (!l)
     return INVALID_HANDLE_VALUE;
+  log(L"%s\n", file_name);
   auto v = CreateFileW(file_name,
                        GENERIC_WRITE,
                        0, nullptr,
@@ -112,7 +113,7 @@ HANDLE CreateTempFile(const wchar_t* prefix){
                        nullptr);
   return v;
 }
-int32_t CloseTempFile(HANDLE h){
+int64_t CloseTempFile(HANDLE h) {
   if (h == INVALID_HANDLE_VALUE)
     return 0;
   wchar_t file_name[MAX_PATH];
@@ -120,6 +121,8 @@ int32_t CloseTempFile(HANDLE h){
   if (!l)
     return GetLastError();
   CloseHandle(h);
-  auto v = DeleteFile(file_name);
-  return v ? 0 : GetLastError();
+  log(L"%s\n", file_name);
+//  auto v = DeleteFile(file_name);
+//  return v ? 0 : GetLastError();
+  return 0;
 }

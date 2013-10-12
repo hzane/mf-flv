@@ -7,7 +7,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <IncludePath>$(CPPREST_ROOT)include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(CPPREST_ROOT)libs\$(PlatformTarget);$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(CPPREST_ROOT)libs\$(PlatformTarget)\$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <Link>

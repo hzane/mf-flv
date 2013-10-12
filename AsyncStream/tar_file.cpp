@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "tar_file.hpp"
 
-read_task tar_file::async_read(uint64_t start, uint32_t size, uint8_t*buffer){
+read_task tar_file::async_read(uint64_t start, uint64_t size, uint8_t*buffer){
 	auto idx = start / tar_page_size;
 	auto in_page_offset = start % tar_page_size;
 	auto page = get_page((uint32_t)idx);
@@ -9,7 +9,7 @@ read_task tar_file::async_read(uint64_t start, uint32_t size, uint8_t*buffer){
 }
 
 //find page and write to page
-write_task tar_file::async_write(uint64_t start, uint32_t size, uint8_t const*data){
+write_task tar_file::async_write(uint64_t start, uint64_t size, uint8_t const*data){
 	auto idx = start / tar_page_size;
 	auto in_page_offset = start % tar_page_size;
 	auto page = get_page((uint32_t)idx);
@@ -17,7 +17,7 @@ write_task tar_file::async_write(uint64_t start, uint32_t size, uint8_t const*da
 }
 
 //intialize page and return it
-tar_page* tar_file::get_page(uint32_t idx){
+tar_page* tar_file::get_page(uint64_t idx) {
   lock_guard gd(lock);
   if (pages.size() <= idx)
     pages.resize(idx +1);
@@ -29,7 +29,7 @@ tar_page* tar_file::get_page(uint32_t idx){
   return v;
 }
 
-int32_t tar_file::close(){
+int64_t tar_file::close() {
   lock_guard gd(lock);
   for(auto &x : pages){
     if (!x)
