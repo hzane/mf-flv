@@ -27,7 +27,7 @@ void scatter_tar_file::fail_and_close(int64_t errcode) {
   }
   if (status.closed)
     return;
-  (void)__super::close();
+  (void)__super::close(); // return immediately
   status.closed = 1;
   log("fail-close %d, reason: %s\n", errcode, this->error_reason.c_str());
 }
@@ -41,7 +41,7 @@ using body_read_task = concurrency::task<size_t>;
 using binary_task    = concurrency::task<int64_t>;
 using binary_buff    = concurrency::streams::rawptr_buffer<uint8_t>;
 using byte_array     = std::shared_ptr<uint8_t>;
-using web::http::http_headers;
+using http_headers   = web::http::http_headers;
 using concurrency::task_from_result;
 using concurrency::task_from_exception;
 
@@ -120,6 +120,26 @@ void enable_random_access_then_write(scatter_tar_file_ptr pthis, response_range 
 void diagnose_http_headers(http_headers const&headers) {
 }
 
+struct http_response_noex {
+  http_response _;
+  std::string   reason;
+  int64_t       code; 
+  http_response_noex() = default;
+  ~http_response_noex() = default;
+  explicit http_response_noex(const char*what, int64_t c) :code(c), reason(what){};
+  explicit http_response_noex(http_response &&resp):_(resp) {};
+};
+using resp_task= concurrency::task<http_response_noex>;
+resp_task do_request(http_client &client, http_request&req) {
+  return client.request(req).then([](response_task tresp)->resp_task {
+    try {
+      return task_from_result(http_response_noex(std::move(tresp.get())));
+    } catch (std::exception&e) {
+      return task_from_result(http_response_noex(e.what(), e_tar_httpstream_ex));
+    }
+  });
+}
+
 int64_t scatter_tar_file::async_head(std::wstring const&uri) {
   lock_guard gd(lock);
   assert(status.heading == 0);
@@ -133,7 +153,8 @@ int64_t scatter_tar_file::async_head(std::wstring const&uri) {
 
   auto req = http_request(web::http::methods::HEAD);
   req.headers().add(L"range", request_range(0, tar_slice_size -1).to_string());
-
+  do_request(client, req).then([](http_response_noex resp) {
+  });
   client.request(req).then([pthis](response_task tresp){
     lock_guard gd(pthis->lock);
       try{
@@ -238,12 +259,12 @@ int64_t scatter_tar_file::async_open(std::wstring const&uri) {
 
 // allow overlapped writing
 write_task scatter_tar_file::async_write(uint64_t start, uint64_t size, uint8_t const* data) {
-//  log("write [%I64u, %d]\n", start, size);
   assert(start % tar_slice_size == 0);
   auto pthis = shared_from_this();
   lock_guard gd(lock);
   ++status.writings;
   return __super::async_write(start, size, data).then([pthis, start](write_result wrreturn)->write_task {
+    log("write [%I64u, %d]\n", start, wrreturn);
     lock_guard gd(pthis->lock);
     --pthis->status.writings;
     pthis->update_write_pointer(start, wrreturn);
