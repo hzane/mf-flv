@@ -17,7 +17,7 @@ struct scatter_tar_file : public tar_file, std::enable_shared_from_this<scatter_
 	uint64_t      reset_length(uint64_t length);
   read_task     async_read(uint64_t size, uint8_t* buffer); // streaming read at read_pointer
   write_task    async_write(uint64_t startat, uint64_t size, uint8_t const* data);
-  download_task async_download_range(request_range const&rng, uint8_t*buf, uint64_t length);
+  download_task async_download_range(request_range const&rng);
   int64_t       async_download();  // do when disable random access
 
   void     try_complete_read();  // if a read pending
@@ -50,8 +50,10 @@ struct scatter_tar_file : public tar_file, std::enable_shared_from_this<scatter_
     uint8_t closed            : 1;
     uint8_t failed            : 1;
     uint8_t random_access     : 1;
+    uint8_t content_length : 1;
 uint8_t                       : 0;
-    uint8_t writings ;
+    uint8_t failed_count;
+    uint8_t writings;
   }status;
   std::string error_reason;
 };

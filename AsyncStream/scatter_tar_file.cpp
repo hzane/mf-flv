@@ -3,9 +3,6 @@
 #include <array>
 #include "tarstream.hpp"
 #include "contexts.hpp"
-#include <cpprest/http_client.h>
-#include <cpprest/streams.h>
-#include <cpprest/rawptrstream.h>
 
 using scatter_tar_file_ptr = std::shared_ptr<scatter_tar_file>;
 using std::make_shared;
@@ -42,6 +39,8 @@ using binary_task    = concurrency::task<int64_t>;
 using binary_buff    = concurrency::streams::rawptr_buffer<uint8_t>;
 using byte_array     = std::shared_ptr<uint8_t>;
 using http_headers   = web::http::http_headers;
+using http_method    = web::http::method;
+using http_methods   = web::http::methods;
 using concurrency::task_from_result;
 using concurrency::task_from_exception;
 
@@ -82,7 +81,7 @@ void write_stream(scatter_tar_file_ptr pthis, body_stream body, uint64_t startat
       }
       // readed isn't equal to tar_slice_size if it's the las block
       pthis->async_write(startat, (uint32_t)readed, buf.get())
-          .then([buf](write_result writed) {      });
+          .then([buf](write_result) {      });
 
       // overlapped write
       if (readed == tar_slice_size) {
@@ -96,6 +95,12 @@ void disable_random_access(scatter_tar_file_ptr pthis, uint64_t content_length){
   lock_guard gd(pthis->lock);
   pthis->content_length = content_length;  // 0 : means unknown content_length
   pthis->status.opened = 1;
+  if (content_length > 0) {
+    auto bits = (content_length + tar_slice_size - 1) / tar_slice_size;
+    pthis->null_slices.resize(bits, content_fixed_length);
+    pthis->commited_slices.resize(bits, content_fixed_length);
+  }
+//  pthis->status.content_length = (content_length > 0) ? 1 : 0;    
 }
 
 void disable_random_access_then_write(scatter_tar_file_ptr pthis, uint64_t content_length, body_stream strm){
@@ -103,13 +108,19 @@ void disable_random_access_then_write(scatter_tar_file_ptr pthis, uint64_t conte
   write_stream(pthis, strm, 0);
 }
 
-void enable_random_access(scatter_tar_file_ptr pthis, uint64_t contentlength){
-  log(L"enable random access content-length : %I64u\n", contentlength);
+void enable_random_access(scatter_tar_file_ptr pthis, uint64_t content_length){
+  log(L"enable random access content-length : %I64u\n", content_length);
 
   lock_guard gd(pthis->lock);
-  pthis->content_length = contentlength;
+  pthis->content_length = content_length;
   pthis->status.opened = 1;
   pthis->status.random_access = 1;
+  if (content_length > 0) {
+    auto bits = (content_length + tar_slice_size - 1) / tar_slice_size;
+    pthis->null_slices.resize(bits, content_fixed_length);
+    pthis->commited_slices.resize(bits, content_fixed_length);
+  }
+//  pthis->status.content_length = (contentlength > 0) ? 1 : 0;
 }
 
 void enable_random_access_then_write(scatter_tar_file_ptr pthis, response_range rr, body_stream strm) {
@@ -117,20 +128,27 @@ void enable_random_access_then_write(scatter_tar_file_ptr pthis, response_range 
   write_stream(pthis, strm, rr.head);
 }
 
-void diagnose_http_headers(http_headers const&headers) {
+void diagnose_http_headers(http_headers const&) {
 }
 
 struct http_response_noex {
   http_response _;
   std::string   reason;
-  int64_t       code; 
+  int64_t       code = 0; 
   http_response_noex() = default;
   ~http_response_noex() = default;
   explicit http_response_noex(const char*what, int64_t c) :code(c), reason(what){};
   explicit http_response_noex(http_response &&resp):_(resp) {};
 };
 using resp_task= concurrency::task<http_response_noex>;
-resp_task do_request(http_client &client, http_request&req) {
+resp_task do_request(std::wstring const&uri, request_range const&rng, http_method mthd) {
+  auto cc = web::http::client::http_client_config();
+  cc.set_timeout(utility::seconds(http_request_timeout));
+  auto client = http_client(uri, cc);
+
+  auto req = http_request(mthd);
+  if(!rng.empty())  
+    req.headers().add(L"range", request_range(0, tar_slice_size - 1).to_string());
   return client.request(req).then([](response_task tresp)->resp_task {
     try {
       return task_from_result(http_response_noex(std::move(tresp.get())));
@@ -147,44 +165,32 @@ int64_t scatter_tar_file::async_head(std::wstring const&uri) {
   status.heading = 1;
   auto pthis = shared_from_this();
 
-  auto cc = web::http::client::http_client_config();
-  cc.set_timeout(utility::seconds(http_request_timeout));
-  auto client = http_client(url, cc);
-
-  auto req = http_request(web::http::methods::HEAD);
-  req.headers().add(L"range", request_range(0, tar_slice_size -1).to_string());
-  do_request(client, req).then([](http_response_noex resp) {
-  });
-  client.request(req).then([pthis](response_task tresp){
+  do_request(url, request_range(0, tar_slice_size - 1), http_methods::HEAD).then([pthis](http_response_noex resp) {
     lock_guard gd(pthis->lock);
-      try{
-        auto resp = tresp.get();
-        resp.body().close();
+    if (resp.code < 0) {
+      pthis->error_reason = resp.reason;
+      pthis->fail_and_close(resp.code);
+    } else {
+      resp._.body().close();
 
-        auto sc = resp.status_code();
-        // transfer-encoding, content-length, content-range
-        if(sc == web::http::status_codes::OK){
-          disable_random_access(pthis, resp.headers().content_length());
-          (void)pthis->async_download();
-        }else if(sc == web::http::status_codes::PartialContent){
-          response_range rr{1, 0, 0};// empty range
-          if (resp.headers().has(L"content-range")){
-            auto crs = resp.headers()[L"content-range"];
-            log(L"content-range: %s\n", crs.c_str());
-            rr = response_range_decoder().decode(crs);
-          }
-          enable_random_access(pthis, rr.instance_size);
-        }else{
-          pthis->fail_and_close(sc | make_sure_negative);
-        }
-      }catch(std::exception const& e){
-        pthis->error_reason = e.what();
-        pthis->fail_and_close(e_tar_http_error | make_sure_negative);
+      auto sc = resp._.status_code();
+      // transfer-encoding, content-length, content-range
+      if (sc == web::http::status_codes::OK) {
+        disable_random_access(pthis, resp._.headers().content_length());
+        (void)pthis->async_download();
+      } else if (sc == web::http::status_codes::PartialContent) {
+        auto i = resp._.headers().find(L"content-range");
+        auto rr = i != resp._.headers().end() ? response_range_decoder().decode(i->second) : response_range();
+        enable_random_access(pthis, rr.instance_size);
+      } else {
+        pthis->fail_and_close(sc | make_sure_negative);
       }
-      pthis->status.headed = 1;
-      pthis->try_complete_read();
-      pthis->try_download_more();
-    });
+    }
+    pthis->status.headed = 1;
+    pthis->try_complete_read();
+    pthis->try_download_more();
+  });
+
   return 0;
 }
 
@@ -193,24 +199,21 @@ int64_t scatter_tar_file::async_download() {
   if(status.random_access || !status.opened || status.closed || status.failed || status.stream_downloading)
     return e_tar_aborted;
   auto pthis = shared_from_this();
-  auto cc = web::http::client::http_client_config();
-  cc.set_timeout(utility::seconds(http_request_timeout));
-  auto client = http_client(url, cc);
-  client.request(web::http::methods::GET).then([pthis](response_task tresp){
+
+  do_request(url, request_range(), http_methods::GET).then([pthis](http_response_noex resp) {
       lock_guard gd(pthis->lock);
-      try{
-        auto resp = tresp.get();
-        auto sc = resp.status_code();
+      if(resp.code >= 0){
+        auto sc = resp._.status_code();
         if (sc != web::http::status_codes::OK){
           pthis->fail_and_close(sc | make_sure_negative);
           pthis->try_complete_read();  // complete pending readings if any
-          resp.body().close();  // close resp directly
+          resp._.body().close();  // close resp directly
         }
-        pthis->content_length = resp.headers().content_length();  //update content-length
-        write_stream(pthis, resp.body(), 0);
-      }catch(std::exception e){
-        pthis->error_reason = e.what();
-        pthis->fail_and_close(e_tar_httpstream_ex | make_sure_negative);
+        pthis->content_length = resp._.headers().content_length();  //update content-length
+        write_stream(pthis, resp._.body(), 0);
+      }else{
+        pthis->error_reason = resp.reason;
+        pthis->fail_and_close(resp.code);
         pthis->try_complete_read();
       }
     });
@@ -222,37 +225,29 @@ int64_t scatter_tar_file::async_open(std::wstring const&uri) {
   assert(status.heading == 0 && status.headed == 0 && status.openning == 0);
   status.openning = 1;  // assert(status.openning == 0)
   auto pthis = shared_from_this();
-  auto client = http_client(url);
-  auto req = http_request();
 
-  req.headers().add(L"range", request_range(0, tar_slice_size -1).to_string());
-  client.request(req).then([pthis](response_task tresp){
+  do_request(url, request_range(0, tar_slice_size - 1), http_methods::GET).then([pthis](http_response_noex resp) {
       lock_guard gd(pthis->lock);
-      try{
-        auto resp = tresp.get();
-        auto sc = resp.status_code();
+      int64_t reason = resp.code;
+      if(resp.code >= 0){
+        auto sc = resp._.status_code();
+        reason = sc | make_sure_negative;
         if(sc == web::http::status_codes::OK){
-          diagnose_http_headers(resp.headers());
-          disable_random_access_then_write(pthis, resp.headers().content_length(), resp.body());
+          diagnose_http_headers(resp._.headers());
+          disable_random_access_then_write(pthis, resp._.headers().content_length(), resp._.body());  // body closed by write-stream
           return;
         }else if(sc == web::http::status_codes::PartialContent) {
-          response_range rr{1, 0, 0};// empty range
-          if (resp.headers().has(L"content-range")){
-            auto crs = resp.headers()[L"content-range"];
-            log(L"content-range: %s\n", crs.c_str());
-            rr = response_range_decoder().decode(crs);
+          auto i = resp._.headers().find(L"content-range");
+          if (i != resp._.headers().end()) {
+            auto rr = response_range_decoder().decode(i->second);
+            return enable_random_access_then_write(pthis, rr, resp._.body());
           }
-          if (rr.empty())
-            pthis->fail_and_close(e_tar_null_content_range);
-          else return enable_random_access_then_write(pthis, rr, resp.body());
-        }else{
-          pthis->fail_and_close(sc | make_sure_negative);
-        }
-        resp.body().close();
-      } catch (std::exception &e) {
-        pthis->error_reason = e.what();
-        pthis->fail_and_close(e_tar_http_error);
+          reason = e_tar_null_content_range;
+        } 
+        resp._.body().close();
       }
+      pthis->error_reason = resp.reason;
+      pthis->fail_and_close(reason);
     });
   return 0;
 }
@@ -264,7 +259,7 @@ write_task scatter_tar_file::async_write(uint64_t start, uint64_t size, uint8_t 
   lock_guard gd(lock);
   ++status.writings;
   return __super::async_write(start, size, data).then([pthis, start](write_result wrreturn)->write_task {
-    log("write [%I64u, %d]\n", start, wrreturn);
+    log("write [%I64u, %d], all: %I64u\n", start, wrreturn, pthis->status.wroten_bytes);
     lock_guard gd(pthis->lock);
     --pthis->status.writings;
     pthis->update_write_pointer(start, wrreturn);
@@ -365,23 +360,29 @@ void scatter_tar_file::try_download_more(){
     return;
   }
   log(L"try download slice %s\n", rng.to_string().c_str());
-  for (auto i = rng.head; i < rng.tail; ++i)
+  for (auto i = rng.head; i <= rng.tail; ++i)
     null_slices.mask((uint32_t)i);
 
   status.progressive_downloadings = 1;
   ++status.downloadings;
 
-  auto sz = rng.size() * tar_slice_size;
-  auto buf = std::shared_ptr<uint8_t>(new uint8_t[(size_t)sz]);
   auto pthis = shared_from_this();
-  async_download_range(rng * tar_slice_size, buf.get(), (uint32_t)sz).then([buf, pthis, rng](response_range range){
+  async_download_range(rng * tar_slice_size).then([pthis, rng](response_range range){
       lock_guard gd(pthis->lock);
       --pthis->status.downloadings;
       pthis->status.progressive_downloadings = 0;
-      auto r = rng - range / tar_slice_size;
-      for (auto i = r.head; i <= r.tail; ++i) {
-        pthis->null_slices.reset((uint32_t)i);  // commited_slices already setted by write_stream
+      if (range.error_code()) {
+        if (++pthis->status.failed_count > max_failed_times)
+          pthis->fail_and_close(range.error_code());
+        for (auto i = rng.head; i <= rng.tail; ++i)
+          pthis->null_slices.reset(i);
+      } else {
+        auto r = rng - range / tar_slice_size;
+        for (auto i = r.head; i <= r.tail; ++i) {
+          pthis->null_slices.reset(i);  // commited_slices already setted by write_stream
+        }
       }
+      pthis->try_download_more();  //needn't do try_complete_read;
     });
 }
 
@@ -391,6 +392,8 @@ uint64_t scatter_tar_file::avail_at(uint64_t start, uint64_t expected_bytes){
   auto end = (start + expected_bytes + tar_slice_size - 1) / tar_slice_size;
   auto slices = commited_slices.continues(idx, end);
   auto true_end = min((idx + slices) * tar_slice_size, start + expected_bytes);
+  if (content_length)
+    true_end = min(true_end, content_length);
   return true_end - start;
 }
 
@@ -403,8 +406,8 @@ request_range scatter_tar_file::first_range_unavail_from(uint64_t start, uint64_
   return request_range{s , s+v -1};
 }
 
-download_task scatter_tar_file::async_download_range(request_range const& rng, uint8_t* buf, uint64_t len) {
-  log("download-range %s\n", rng.to_string().c_str());
+download_task scatter_tar_file::async_download_range(request_range const& rng) {
+  log(L"download-range %s\n", rng.to_string().c_str());
   auto pthis = shared_from_this();
   http_client client(url);
   auto req = http_request();
