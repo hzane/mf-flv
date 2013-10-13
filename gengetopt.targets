@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <GGOFile Include="$(MSBuildProjectDirectory)\$(ProjectName).ggo"/>
+  </ItemGroup>
+  <Target
+    Name="GenerateGetOptions"
+    BeforeTargets="CLCompile"
+    Outputs="%(RootDir)%(Directory)cmdline.h;%(RootDir)%(Directory)cmdline.c"
+    Inputs="@(GGOFile)"
+    >
+    <Message Importance="High"
+      Text="%(GGOFile.FullPath) -&gt; cmdline.[ch]" />
+    <Exec Command="gengetopt.exe -G -i %(GGOFile.FullPath) -F cmdline"/>
+  </Target>
+
+</Project>
