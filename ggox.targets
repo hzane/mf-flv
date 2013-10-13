@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <PropertyPageSchema
+      Include="$(MSBuildThisFileDirectory)$(MSBuildThisFileName).xml" />
+    <AvailableItemName
+      Include="GetOptionGenerator">
+      <Targets>GenerateGetOptions</Targets>
+    </AvailableItemName>
+  </ItemGroup>
+  <Target
+    Name="GenerateGetOptions"
+    BeforeTargets="CLCompile"
+    Outputs="%(RootDir)%(Directory)cmdline.h;%(RootDir)%(Directory)cmdline.c"
+    Inputs="%(GetOptionGenerator.Identity)"
+    >
+    <Message
+      Importance="High"
+      Text="Preprocessing: %(GetOptionGenerator.Identity).ggo -&gt; cmdline.[ch]" />
+    <Exec Command="gengetopt.exe -G -i %(GetOptionGenerator.Identity) -F cmdline"/>
+  </Target>
+
+</Project>
