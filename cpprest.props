@@ -13,11 +13,6 @@
     <Link>
       <AdditionalDependencies>$(CPPREST_LIBNAME);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <CustomBuild />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
-    <CustomBuildStep />
   </ItemDefinitionGroup>
   <ItemGroup>
     <BuildMacro Include="CPPREST_ROOT">
