@@ -24,4 +24,4 @@ option "url"	u	"downloading url" string default="http://www.baidu.com" no
      
 #text "a textual sentence"
 
-# gengetopt -G -i AsyncStream.ggo
+# gengetopt -G -i AsyncStream.ggo -F cmdline
