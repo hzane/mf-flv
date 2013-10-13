@@ -25,7 +25,10 @@ static const uint32_t _128m          = 128 * 1024 * 1024ui32;
 static const uint32_t tar_page_size  = _128m;
 static const uint32_t tar_slice_size = _4k;
 
-
 const static uint32_t _64k                 = 64 * 1024ui32;
 const static uint32_t tar_max_downloadings = 2;
 const static uint32_t tar_max_chunk_size   = _64k;
+
+const static uint8_t content_fixed_length = 1ui8;
+const static uint8_t content_undetermined_length = 0ui8;
+const static uint8_t max_failed_times = 3;
