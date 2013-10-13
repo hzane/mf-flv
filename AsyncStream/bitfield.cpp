@@ -4,11 +4,12 @@
 
 bitfield::bitfield() {
 }
-void bitfield::resize(uint64_t count){
-  // what if count is zero
+void bitfield::resize(uint64_t count, uint8_t fixed_length){
+  this->fixed_length = fixed_length;
   auto nalloc = (count + bits_container_size - 1) / bits_container_size;
   auto oalloc = (size + bits_container_size - 1) / bits_container_size;
   if (oalloc == nalloc) {
+    size = count;
     return;
   }
   auto n = new uint64_t[(uint64_t)nalloc];
@@ -29,6 +30,7 @@ bool bitfield::test(uint64_t idx)const {
 
 void bitfield::mask(uint64_t idx) {
   if (idx >= size)  {
+    assert(!fixed_length);
     resize(idx + bits_container_size);
   }
   auto i = idx / bits_container_size;
@@ -45,18 +47,21 @@ void bitfield::reset(uint64_t idx) {
 }
 
 uint64_t bitfield::continues(uint64_t begin, uint64_t end) {
+  if (fixed_length && end > size)
+    end = size;
   uint64_t v = 0;
   while (begin < end && test(begin++)) ++v;
   return v;
 }
 uint64_t bitfield::continues_null(uint64_t begin, uint64_t end) {
+  if (fixed_length && end > size)
+    end = size;
   uint64_t v = 0;
   while (begin < end && !test(begin++)) ++v;
   return v;
 }
 
 uint64_t bitfield::first_null(uint64_t begin) {
-  auto end = (size + bits_container_size - 1) / bits_container_size;
-  while (begin < end && test(begin)) ++begin;
+  while (begin < size && test(begin)) ++begin;
   return begin;
 }
