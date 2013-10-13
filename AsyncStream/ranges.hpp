@@ -5,7 +5,7 @@
 
 using std::wstring;
 struct request_range{
-  uint64_t head = 0 - 1ull;
+  uint64_t head = 0 - 1ui64;
   uint64_t tail = 0;
 
   uint64_t size()const;
@@ -21,7 +21,7 @@ struct request_range{
 };
 
 struct response_range : request_range{
-  uint64_t instance_size;
+  uint64_t instance_size = 0;
   explicit response_range(uint64_t h, uint64_t t, uint64_t insl);
   response_range() = default;
   response_range(const response_range&) = default;
