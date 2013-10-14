@@ -32,6 +32,9 @@ void progressive_httpstream::try_complete_read() {
   if (status.failed || status.closed)
     return update_read_pointer(status.error_code | make_sure_negative);
   assert(!status.tar_reading);
+  auto a = avail_bytes_from(read_op_context.start_position, read_op_context.expected);
+  if (a < read_op_context.expected)
+    return;  // wait fore more data
 
   auto pthis = shared_from_this();
   status.tar_reading = 1;
@@ -89,10 +92,10 @@ void progressive_httpstream::try_download_more() {
 }
 
 void when_response_failed(this_t pthis, int64_t errcode, request_range r) {
-  if (++pthis->status.failed_count > max_failed_times)
-    pthis->fail_and_close(errcode | make_sure_negative);
   for (auto i = r.head; i <= r.tail; ++i)  // revert downloading flags
     pthis->null_slices.reset(i);
+  if (++pthis->status.failed_count > max_failed_times)
+    pthis->fail_and_close(errcode | make_sure_negative);
 }
 void write_stream(this_t pthis, body_stream body, uint64_t startat) {
   auto buf = std::shared_ptr<uint8_t>(new uint8_t[tar_slice_size]);
@@ -192,4 +195,15 @@ request_range progressive_httpstream::first_unready_range(uint64_t start, uint64
   auto end = s + (maxbytes + tar_slice_size - 1) / tar_slice_size;
   auto v = null_slices.continues_null(s, end);
   return request_range{s, s + v - 1};
+}
+
+uint64_t progressive_httpstream::avail_bytes_from(uint64_t start, uint64_t expected_bytes) {
+  lock_guard gd(lock);
+  auto idx = start / tar_slice_size;
+  auto end = (start + expected_bytes + tar_slice_size - 1) / tar_slice_size;
+  auto slices = commited_slices.continues(idx, end);
+  auto true_end = min((idx + slices) * tar_slice_size, start + expected_bytes);
+  if (content_length)
+    true_end = min(true_end, content_length);
+  return true_end - start;
 }

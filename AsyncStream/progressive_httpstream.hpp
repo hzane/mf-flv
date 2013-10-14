@@ -20,6 +20,7 @@ struct progressive_httpstream: public ihttp_stream, tar_file, std::enable_shared
   void try_download_more();
   void update_read_pointer(read_result readed);
   void     update_write_pointer(uint64_t start, int64_t result);  // called when write complete
+  uint64_t      avail_bytes_from(uint64_t startat, uint64_t expected);  // bytes
   request_range first_unready_range(uint64_t startat, uint64_t maxrangesize);
 
   std::wstring           url;

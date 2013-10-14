@@ -9,7 +9,7 @@
 int main_imp(gengetopt_args_info& ai)
 {
   auto st = std::make_shared<scatter_tar_file>();
-  st->async_head(utility::conversions::to_string_t(ai.url_arg));
+  st->async_open(utility::conversions::to_string_t(ai.url_arg), 0);
   //uint8_t buf[128];
  // st->async_read(128, buf);
   getchar();
