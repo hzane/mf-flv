@@ -29,20 +29,6 @@ void scatter_tar_file::fail_and_close(int64_t errcode) {
   log("fail-close %d, reason: %s\n", errcode, this->error_reason.c_str());
 }
 
-using body_stream    = concurrency::streams::istream; // body's type
-using http_client    = web::http::client::http_client;
-using http_request   = web::http::http_request;
-using http_response  = web::http::http_response;
-using response_task  = concurrency::task<http_response>;
-using body_read_task = concurrency::task<size_t>;
-using binary_task    = concurrency::task<int64_t>;
-using binary_buff    = concurrency::streams::rawptr_buffer<uint8_t>;
-using byte_array     = std::shared_ptr<uint8_t>;
-using http_headers   = web::http::http_headers;
-using http_method    = web::http::method;
-using http_methods   = web::http::methods;
-using concurrency::task_from_result;
-using concurrency::task_from_exception;
 
 binary_task read_until_full(body_stream body, uint8_t* buf, size_t startat, size_t total_size) {
   binary_buff sbuf(buf + startat, total_size - startat);
@@ -131,17 +117,7 @@ void enable_random_access_then_write(scatter_tar_file_ptr pthis, response_range 
 void diagnose_http_headers(http_headers const&) {
 }
 
-struct http_response_noex {
-  http_response _;
-  std::string   reason;
-  int64_t       code = 0; 
-  http_response_noex() = default;
-  ~http_response_noex() = default;
-  explicit http_response_noex(const char*what, int64_t c) :code(c), reason(what){};
-  explicit http_response_noex(http_response &&resp):_(resp) {};
-};
-using resp_task= concurrency::task<http_response_noex>;
-resp_task do_request(std::wstring const&uri, request_range const&rng, http_method mthd) {
+resp_task do_request(std::wstring const&uri, request_range const&rng, http_method mthd, status_code accept) {
   auto cc = web::http::client::http_client_config();
   cc.set_timeout(utility::seconds(http_request_timeout));
   auto client = http_client(uri, cc);
@@ -149,9 +125,14 @@ resp_task do_request(std::wstring const&uri, request_range const&rng, http_metho
   auto req = http_request(mthd);
   if(!rng.empty())  
     req.headers().add(L"range", request_range(0, tar_slice_size - 1).to_string());
-  return client.request(req).then([](response_task tresp)->resp_task {
+  return client.request(req).then([accept](response_task tresp)->resp_task {
     try {
-      return task_from_result(http_response_noex(std::move(tresp.get())));
+      // return task_from_result(http_response_noex(std::move(tresp.get())));
+      auto resp = tresp.get();
+      auto sc = resp.status_code();
+      if (accept && sc != accept)
+        return task_from_result(http_response_noex(utility::conversions::to_utf8string(resp.reason_phrase()).c_str(), sc | make_sure_negative));
+      return task_from_result(http_response_noex(std::move(resp)));
     } catch (std::exception&e) {
       return task_from_result(http_response_noex(e.what(), e_tar_httpstream_ex));
     }
@@ -165,7 +146,7 @@ int64_t scatter_tar_file::async_head(std::wstring const&uri) {
   status.heading = 1;
   auto pthis = shared_from_this();
 
-  do_request(url, request_range(0, tar_slice_size - 1), http_methods::HEAD).then([pthis](http_response_noex resp) {
+  do_request(url, request_range(0, tar_slice_size - 1), http_methods::HEAD, 0).then([pthis](http_response_noex resp) {
     lock_guard gd(pthis->lock);
     if (resp.code < 0) {
       pthis->error_reason = resp.reason;
@@ -193,14 +174,13 @@ int64_t scatter_tar_file::async_head(std::wstring const&uri) {
 
   return 0;
 }
-
 int64_t scatter_tar_file::async_download() {
   lock_guard gd(lock);
   if(status.random_access || !status.opened || status.closed || status.failed || status.stream_downloading)
     return e_tar_aborted;
   auto pthis = shared_from_this();
 
-  do_request(url, request_range(), http_methods::GET).then([pthis](http_response_noex resp) {
+  do_request(url, request_range(), http_methods::GET, status_codes::OK).then([pthis](http_response_noex resp) {
       lock_guard gd(pthis->lock);
       if(resp.code >= 0){
         auto sc = resp._.status_code();
@@ -226,7 +206,7 @@ int64_t scatter_tar_file::async_open(std::wstring const&uri) {
   status.openning = 1;  // assert(status.openning == 0)
   auto pthis = shared_from_this();
 
-  do_request(url, request_range(0, tar_slice_size - 1), http_methods::GET).then([pthis](http_response_noex resp) {
+  do_request(url, request_range(0, tar_slice_size - 1), http_methods::GET, 0).then([pthis](http_response_noex resp) {
       lock_guard gd(pthis->lock);
       int64_t reason = resp.code;
       if(resp.code >= 0){
@@ -339,9 +319,9 @@ void scatter_tar_file::update_read_pointer(read_result readed){
   //  lock_guard gd(lock); already locked before
   if(readed > 0 )
     read_pointer += readed;
+  status.reading = 0;
   read_op_context.read_task_event->set(readed);  // notify task complete
   read_op_context.read_task_event = nullptr;  // release task_completion_event
-  status.reading = 0;
   try_download_more();
 }
 
@@ -355,13 +335,13 @@ void scatter_tar_file::try_download_more(){
     return;
 
   // todo: stop when cached enough
-  auto rng = first_range_unavail_from(read_pointer, tar_max_chunk_size);
+  auto rng = first_unready_range(read_pointer, tar_max_chunk_size);
   if (rng.empty()){
     return;
   }
   log(L"try download slice %s\n", rng.to_string().c_str());
   for (auto i = rng.head; i <= rng.tail; ++i)
-    null_slices.mask((uint32_t)i);
+    null_slices.mask(i);
 
   status.progressive_downloadings = 1;
   ++status.downloadings;
@@ -381,6 +361,9 @@ void scatter_tar_file::try_download_more(){
         for (auto i = r.head; i <= r.tail; ++i) {
           pthis->null_slices.reset(i);  // commited_slices already setted by write_stream
         }
+        if (!r.empty() && !pthis->status.random_access) {
+          pthis->status.commited = 1;
+        }
       }
       pthis->try_download_more();  //needn't do try_complete_read;
     });
@@ -397,7 +380,7 @@ uint64_t scatter_tar_file::avail_at(uint64_t start, uint64_t expected_bytes){
   return true_end - start;
 }
 
-request_range scatter_tar_file::first_range_unavail_from(uint64_t start, uint64_t maxbytes){
+request_range scatter_tar_file::first_unready_range(uint64_t start, uint64_t maxbytes) {
   lock_guard gd(lock);
   auto idx = start / tar_slice_size;
   auto s = null_slices.first_null(idx);
@@ -439,3 +422,4 @@ download_task scatter_tar_file::async_download_range(request_range const& rng) {
     }
   });
 }
+

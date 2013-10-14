@@ -26,7 +26,7 @@ struct scatter_tar_file : public tar_file, std::enable_shared_from_this<scatter_
   void     update_read_pointer(read_result result);  // called when read complete
 
   uint64_t      avail_at(uint64_t startat, uint64_t expected);  // bytes
-  request_range first_range_unavail_from(uint64_t start, uint64_t maxcount);  // bytes
+  request_range first_unready_range(uint64_t start, uint64_t maxcount);  // bytes
 
   read_operation_context read_op_context;
   bitfield               null_slices;   // 0 : unalloced, 1 : alloced or commited block
@@ -57,3 +57,4 @@ uint8_t                       : 0;
   }status;
   std::string error_reason;
 };
+
