@@ -8,12 +8,17 @@
 
 int main_imp(gengetopt_args_info& ai)
 {
-  auto st = std::make_shared<scatter_tar_file>();
-  st->async_open(utility::conversions::to_string_t(ai.url_arg), 0);
+  //auto st = std::make_shared<scatter_tar_file>();
+  //st->async_open(utility::conversions::to_string_t(ai.url_arg), 0);
   //uint8_t buf[128];
  // st->async_read(128, buf);
+  using utility::conversions::to_string_t;
+  auto r = scatter_tar_file_handler().async_open(to_string_t(ai.url_arg));
+  auto v = r.get();
   getchar();
-  st->fail_and_close(0);
+  if (v.value)
+    v.value->fail_and_close(0);
+  //st->fail_and_close(0);
   return 0;
 }
 int main(int argc, char* argv[])
