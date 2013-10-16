@@ -1,0 +1,36 @@
+HKCU
+{
+	NoRemove Software
+	{
+		NoRemove Classes
+		{
+			NoRemove CLSID
+			{
+				ForceRemove {CD27D61F-1E98-46B6-B239-53D0C630EA06} = s 'Flv FttpScheme Handler'
+				{
+					ForceRemove Programmable
+					InprocServer32 = s '%MODULE%'
+					{
+						val ThreadingModel = s 'Both'
+					}
+				}
+			}
+		}
+	}
+  NoRemove Software
+  {
+    NoRemove Microsoft
+    {
+      NoRemove 'Windows Media Foundation'
+      {
+        NoRemove SchemeHandlers
+        {
+          ForceRemove 'fttp:'
+          {
+            val {CD27D61F-1E98-46B6-B239-53D0C630EA06} = s 'Flv FttpScheme Handler'
+          }
+        }
+      }
+    }
+  }
+}
