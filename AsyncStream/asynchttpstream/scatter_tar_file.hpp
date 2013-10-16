@@ -33,7 +33,7 @@ struct scatter_tar_file : public tar_file, std::enable_shared_from_this<scatter_
   std::wstring           reason;          // if error_code != 0
   struct {
     uint64_t wroten_bytes;
-    uint64_t seek_pointer;
+//    uint64_t seek_pointer;
     int64_t error_code;
     uint8_t reading           : 1;
     uint8_t tar_reading       : 1;
@@ -47,7 +47,7 @@ struct scatter_tar_file : public tar_file, std::enable_shared_from_this<scatter_
     uint8_t content_ready     : 1;
     uint8_t closed            : 1;
     uint8_t failed            : 1;
-    uint8_t pending_seek : 1;
+//    uint8_t pending_seek : 1;
     uint8_t content_length : 1;
 uint8_t                       : 0;
     uint8_t failed_count;

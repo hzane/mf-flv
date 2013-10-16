@@ -151,11 +151,13 @@ read_task scatter_tar_file::async_read(uint64_t size, uint8_t* buf) {
   } else if (status.failed || status.closed) {
     x = e_tar_aborted | make_sure_negative;
   }
+  /*
   if (status.pending_seek) {
     log("scatter-tar-file do seek before async-read %I64u, prev-pointer: %I64u\n", status.pending_seek, read_pointer);
     status.pending_seek = 0;
     read_pointer = status.pending_seek;
   }
+  */
   if (x < 0)
     return concurrency::task_from_result<read_result>(x);
   if (content_length && read_pointer == content_length)
@@ -218,16 +220,17 @@ void scatter_tar_file::try_complete_read(){
 void scatter_tar_file::update_read_pointer(read_result readed){
   assert(read_pointer == read_op_context.start_position);
   //  lock_guard gd(lock); already locked before
-  if(readed > 0)
+  if (readed > 0 && read_pointer == read_op_context.start_position)  // seek will change read-pointer
     read_pointer += readed;
   status.reading = 0;
   read_op_context.read_task_event->set(readed);  // notify task complete
   read_op_context.read_task_event = nullptr;  // release task_completion_event
+  /*
   if (status.pending_seek) {  // read_pointer will affect try-download-more, so we update it after read immediately
     log("scatter update seek pointer after read %I64u -> %I64u\n", read_pointer, status.seek_pointer);
     status.pending_seek = 0;
     read_pointer = status.seek_pointer;
-  }
+  }*/
   try_download_more();
 }
 
@@ -317,12 +320,13 @@ request_range scatter_tar_file::first_unready_range(uint64_t start, uint64_t max
 
 uint64_t scatter_tar_file::seek(uint64_t pos) {
   lock_guard g(lock);
-  if (status.reading) {
-    status.pending_seek = 1;
-    status.seek_pointer = pos;
-  } else {
+  
+  //if (status.reading) {
+  //  status.pending_seek = 1;
+  //  status.seek_pointer = pos;
+  //} else {
     read_pointer = pos;
-  }
+  //}
   try_download_more();
   return pos;
 }

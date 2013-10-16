@@ -54,12 +54,12 @@ HRESULT ProgressiveHttpStream::IsEndOfStream(BOOL *eos) {
 
 HRESULT ProgressiveHttpStream::Seek(MFBYTESTREAM_SEEK_ORIGIN origin, LONGLONG seek_offset, DWORD , QWORD *current){
   lock_guard g(_impl->lock);
-  auto true_read_pointer = _impl->status.pending_seek ? _impl->status.seek_pointer : _impl->read_pointer;
+//  auto true_read_pointer = _impl->status.pending_seek ? _impl->status.seek_pointer : _impl->read_pointer;
   if(origin == MFBYTESTREAM_SEEK_ORIGIN::msoBegin)
     *current = seek_offset;
   else if(origin == MFBYTESTREAM_SEEK_ORIGIN::msoCurrent)
-    *current = true_read_pointer + seek_offset;
-  else *current = true_read_pointer;
+    *current = _impl->read_pointer + seek_offset;
+  else *current = _impl->read_pointer;
   *current = _impl->seek(*current);
   return S_OK;
 }
