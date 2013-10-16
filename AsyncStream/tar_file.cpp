@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "tar_file.hpp"
+#include "asynchttpstream/tar_file.hpp"
 
 read_task tar_file::async_read(uint64_t start, uint64_t size, uint8_t*buffer){
 	auto idx = start / tar_page_size;
@@ -20,11 +20,11 @@ write_task tar_file::async_write(uint64_t start, uint64_t size, uint8_t const*da
 tar_page* tar_file::get_page(uint64_t idx) {
   lock_guard gd(lock);
   if (pages.size() <= idx)
-    pages.resize(idx +1);
-  auto v = pages[idx];
+    pages.resize(size_t(idx) +1);
+  auto v = pages[size_t(idx)];
   if (v == nullptr){
     v = new tar_page();
-    pages[idx] = v;
+    pages[size_t(idx)] = v;
   }
   return v;
 }
