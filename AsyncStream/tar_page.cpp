@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "tar_page.hpp"
+#include "asynchttpstream/tar_page.hpp"
 using dbg::log;
 int64_t CloseTempFile(HANDLE h);  // close and delete it
 HANDLE  CreateTempFile(const wchar_t* prefix);
@@ -49,10 +49,10 @@ read_task tar_page::async_read(uint64_t start, uint64_t size, uint8_t*buffer) {
   }
 
   auto ovex = new overlapped_ext(start);
+  auto t = read_task(ovex->task_event);
   StartThreadpoolIo(tp_io);
   auto v = ReadFile(_handle, buffer, (uint32_t)size, nullptr, ovex);
   assert(!v);  // no skip successful io
-  auto t = read_task(ovex->task_event);
   auto c = GetLastError();
   if (c != ERROR_IO_PENDING){
     CancelThreadpoolIo(tp_io);
@@ -101,15 +101,15 @@ HANDLE CreateTempFile(const wchar_t* prefix){
     return INVALID_HANDLE_VALUE;
 
   wchar_t file_name[MAX_PATH];
-  l = GetTempFileName(tmp, prefix, 0, file_name);
+  l = GetTempFileNameW(tmp, prefix, 0, file_name);
   if (!l)
     return INVALID_HANDLE_VALUE;
-  log(L"%s\n", file_name);
+  log(L"tar-page open file: %s\n", file_name);
   auto v = CreateFileW(file_name,
-                       GENERIC_WRITE,
+                       GENERIC_WRITE | GENERIC_READ,
                        0, nullptr,
                        CREATE_ALWAYS,
-                       FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_OVERLAPPED | FILE_FLAG_RANDOM_ACCESS,
+                       FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_OVERLAPPED | FILE_FLAG_SEQUENTIAL_SCAN,
                        nullptr);
   return v;
 }
@@ -121,8 +121,7 @@ int64_t CloseTempFile(HANDLE h) {
   if (!l)
     return GetLastError();
   CloseHandle(h);
-  log(L"%s\n", file_name);
-//  auto v = DeleteFile(file_name);
-//  return v ? 0 : GetLastError();
-  return 0;
+  log(L"tar-page close and delete file: %s\n", file_name);
+  auto v = DeleteFileW(file_name);
+  return v ? 0 : GetLastError();
 }
