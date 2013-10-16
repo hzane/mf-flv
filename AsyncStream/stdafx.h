@@ -9,7 +9,7 @@
 #include <cpprest/rawptrstream.h>
 #include <memory>
 
-#include "constants.hpp"
+#include "asynchttpstream/constants.hpp"
 using concurrency::task_from_result;
 using std::make_shared;
 namespace dbg {
