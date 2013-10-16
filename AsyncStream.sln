@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AsyncStream", "AsyncStream\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HttpByteStream", "HttpByteStream\HttpByteStream.vcxproj", "{E7C7EB8C-DB9F-4482-A369-ADBD217D1968}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FlvSource", "FlvSource\FlvSource.vcxproj", "{CA2FF343-02A1-4F8C-9BEF-1CD66C81F986}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -30,6 +32,14 @@ Global
 		{E7C7EB8C-DB9F-4482-A369-ADBD217D1968}.Release|Win32.ActiveCfg = Release|Win32
 		{E7C7EB8C-DB9F-4482-A369-ADBD217D1968}.Release|Win32.Build.0 = Release|Win32
 		{E7C7EB8C-DB9F-4482-A369-ADBD217D1968}.Release|x64.ActiveCfg = Release|Win32
+		{CA2FF343-02A1-4F8C-9BEF-1CD66C81F986}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CA2FF343-02A1-4F8C-9BEF-1CD66C81F986}.Debug|Win32.Build.0 = Debug|Win32
+		{CA2FF343-02A1-4F8C-9BEF-1CD66C81F986}.Debug|x64.ActiveCfg = Debug|x64
+		{CA2FF343-02A1-4F8C-9BEF-1CD66C81F986}.Debug|x64.Build.0 = Debug|x64
+		{CA2FF343-02A1-4F8C-9BEF-1CD66C81F986}.Release|Win32.ActiveCfg = Release|Win32
+		{CA2FF343-02A1-4F8C-9BEF-1CD66C81F986}.Release|Win32.Build.0 = Release|Win32
+		{CA2FF343-02A1-4F8C-9BEF-1CD66C81F986}.Release|x64.ActiveCfg = Release|x64
+		{CA2FF343-02A1-4F8C-9BEF-1CD66C81F986}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
