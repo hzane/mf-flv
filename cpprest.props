@@ -3,7 +3,8 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros">
     <CPPREST_ROOT>../deps/casablanca/</CPPREST_ROOT>
-    <CPPREST_LIBNAME>cpprest120_1_1.lib</CPPREST_LIBNAME>
+    <CPPREST_NAME>cpprest120_1_1</CPPREST_NAME>
+    <CPPREST_LIBNAME>$(CPPREST_NAME).lib</CPPREST_LIBNAME>
   </PropertyGroup>
   <PropertyGroup>
     <IncludePath>$(CPPREST_ROOT)include;$(IncludePath)</IncludePath>
@@ -19,9 +20,11 @@
       <Value>$(CPPREST_ROOT)</Value>
       <EnvironmentVariable>true</EnvironmentVariable>
     </BuildMacro>
+    <BuildMacro Include="CPPREST_NAME">
+      <Value>$(CPPREST_NAME)</Value>
+    </BuildMacro>
     <BuildMacro Include="CPPREST_LIBNAME">
       <Value>$(CPPREST_LIBNAME)</Value>
-      <EnvironmentVariable>true</EnvironmentVariable>
     </BuildMacro>
   </ItemGroup>
 </Project>
