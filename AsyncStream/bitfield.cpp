@@ -1,6 +1,6 @@
 #include "stdafx.h"
-#include "bitfield.hpp"
 #include <algorithm>
+#include "asynchttpstream/bitfield.hpp"
 
 bitfield::bitfield() {
 }
@@ -12,9 +12,9 @@ void bitfield::resize(uint64_t count, uint8_t fixed_length){
     size = count;
     return;
   }
-  auto n = new uint64_t[(uint64_t)nalloc];
-  memset(n, 0, (uint64_t)nalloc * byte_per_ui64);
-  memcpy(n, _.get(), (uint64_t)min(oalloc, nalloc));
+  auto n = new uint64_t[(size_t)nalloc];
+  memset(n, 0, (size_t)nalloc * byte_per_ui64);
+  memcpy(n, _.get(), (size_t)min(oalloc, nalloc));
   _.reset(n);
   size = count;
 }
