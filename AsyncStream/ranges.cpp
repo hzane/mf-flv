@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "ranges.hpp"
+#include "asynchttpstream/ranges.hpp"
 
 request_range::request_range(uint64_t h, uint64_t t): head(h), tail(t){}
 
