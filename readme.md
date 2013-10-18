@@ -28,7 +28,8 @@ FLV是容器格式，spec里面列出了支持的音视频编码格式，这些�
 - WebServer does not accept ranges requests
 
 #### MediaSource and MediaStream State Transfer and MEEvents
-// before   ''' c++
+
+''' c++
 enum {
     OPENNING,
     OPENED,
