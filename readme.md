@@ -29,7 +29,7 @@ FLV是容器格式，spec里面列出了支持的音视频编码格式，这些�
 
 #### MediaSource and MediaStream State Transfer and MEEvents
 
-''' c++
+``` c++
 enum {
     OPENNING,
     OPENED,
@@ -38,7 +38,7 @@ enum {
     STOPPED
     SHUTDOWN,
 };
-'''
+```
 > **OPENNING**
 > : 还不知道具体的编解码格式和参数；FLV文件在读取到avcC[^avcC]和之后，状态转移到Opened
 
