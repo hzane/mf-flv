@@ -4,7 +4,7 @@ purpose "AsyncStream is used for demo something"
 usage "use --help"
 #description "description"
 #versiontext "alpha"
-     
+
 #args "<command line options>"
 option "verbose"     v  "verbose mode"  flag    off
 option "url"	u	"downloading url" string default="http://www.baidu.com" no
@@ -17,11 +17,11 @@ option "url"	u	"downloading url" string default="http://www.baidu.com" no
 #{dependon="<other option>"}
 #{required} {argoptional} {multiple}
 #{hidden}
-     
+
 #option <long> <short> "<desc>" flag <on/off>
-     
+
 #section "section name" {sectiondesc="optional section description"}
-     
+
 #text "a textual sentence"
 
 # gengetopt -G -i AsyncStream.ggo -F cmdline
