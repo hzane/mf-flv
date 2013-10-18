@@ -26,7 +26,5 @@ public:
   HRESULT RuntimeClassInitialize(wchar_t const*url, UINT64 contentlength);
 protected:
   ~ProgressiveHttpStream() = default;
-  using callback_stub = AsyncCallback<ProgressiveHttpStream>;
-
   std::shared_ptr<scatter_tar_file> _impl;
 };

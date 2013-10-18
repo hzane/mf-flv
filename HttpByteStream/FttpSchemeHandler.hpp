@@ -28,13 +28,19 @@ FttpSchemeHandler : public RuntimeClass<RuntimeClassFlags<ClassicCom>, IMFScheme
   HRESULT RuntimeClassInitialize() { return S_OK; };
 protected:
   using Callback = AsyncCallback<FttpSchemeHandler>;
-  IMFByteStreamHandlerPtr flv_source_creator;
-  IMFMediaSourcePtr       flv_source;
+  IMFByteStreamHandlerPtr source_creator;
+  IMFMediaSourcePtr       source;
   IMFAsyncResultPtr       caller_result;
   IMFByteStreamPtr        http_stream;
-  Callback                when_bsh_create_object;
-  fttp_uri                uri;
-  STDMETHODIMP WhenBshCreateObject(IMFAsyncResult*);
+  Callback                when_create_mediasource;
+  Callback                when_create_bytestream;
+
+  fttp_uri     uri;
+  std::wstring content_type;
+  uint8_t      magic[64];               //64 is enough
+  STDMETHODIMP WhenCreateMediaSource(IMFAsyncResult*);
+  STDMETHODIMP WhenCreateByteStream(IMFAsyncResult*);
+  STDMETHODIMP BeginCreateMediaSource();
 };
 
 CoCreatableClass(FttpSchemeHandler);
