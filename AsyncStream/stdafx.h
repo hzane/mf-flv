@@ -10,8 +10,10 @@
 #include <memory>
 
 #include "asynchttpstream/constants.hpp"
+
 using concurrency::task_from_result;
 using std::make_shared;
+
 namespace dbg {
   void log(const char*fmt, ...);
   void log(const wchar_t*fmt, ...);

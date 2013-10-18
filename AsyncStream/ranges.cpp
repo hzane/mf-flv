@@ -12,13 +12,15 @@ uint64_t request_range::size()const{
 bool request_range::empty()const{
   return head > tail;
 }
+
 wstring request_range::to_string()const {
-  wchar_t buf[128];
+  wchar_t buf[128] = {0, };
   (void)swprintf_s(buf, L"bytes=%d-%I64u", head, tail);
   return buf;
 }
 
 response_range error_response_range(int64_t code);
+
 // bytes [sp] head-tail/instance_length
 // bytes [sp] */*
 response_range response_range_decoder::decode(std::wstring const&s) {

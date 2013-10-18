@@ -1,7 +1,9 @@
 #include "stdafx.h"
 #include "asynchttpstream/log.hpp"
+
+static const size_t buff_size = 16384;  // may be enough
 void dbg::log(const wchar_t*fmt, ...) {
-  wchar_t dst[16384];
+  wchar_t dst[buff_size];
   va_list ap;
   va_start(ap, fmt);
   vwprintf_s(fmt, ap);
@@ -11,7 +13,7 @@ void dbg::log(const wchar_t*fmt, ...) {
     OutputDebugStringW(dst);
 }
 void dbg::log(const char*fmt, ...) {
-  char dst[16384];
+  char dst[buff_size];
   va_list ap;
   va_start(ap, fmt);
   auto r = vsprintf_s(dst, fmt, ap);

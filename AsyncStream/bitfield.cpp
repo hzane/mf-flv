@@ -2,21 +2,18 @@
 #include <algorithm>
 #include "asynchttpstream/bitfield.hpp"
 
-bitfield::bitfield() {
-}
 void bitfield::resize(uint64_t count, uint8_t fixed_length){
   this->fixed_length = fixed_length;
   auto nalloc = (count + bits_container_size - 1) / bits_container_size;
   auto oalloc = (size + bits_container_size - 1) / bits_container_size;
-  if (oalloc == nalloc) {
-    size = count;
+  size = count;
+  if (oalloc == nalloc) {  // needn't realloc, but size should be updated here
     return;
   }
   auto n = new uint64_t[(size_t)nalloc];
   memset(n, 0, (size_t)nalloc * byte_per_ui64);
   memcpy(n, _.get(), (size_t)min(oalloc, nalloc));
   _.reset(n);
-  size = count;
 }
 
 bool bitfield::test(uint64_t idx)const {
@@ -46,6 +43,7 @@ void bitfield::reset(uint64_t idx) {
   _.get()[i] &= ~(1ui64 << offset);
 }
 
+// continuous setted bitfields from begin
 uint64_t bitfield::continues(uint64_t begin, uint64_t end) {
   if (fixed_length && end > size)
     end = size;
@@ -53,6 +51,8 @@ uint64_t bitfield::continues(uint64_t begin, uint64_t end) {
   while (begin < end && test(begin++)) ++v;
   return v;
 }
+
+// continuous unset bitfields from begin
 uint64_t bitfield::continues_null(uint64_t begin, uint64_t end) {
   if (fixed_length && end > size)
     end = size;
@@ -61,6 +61,7 @@ uint64_t bitfield::continues_null(uint64_t begin, uint64_t end) {
   return v;
 }
 
+// the first unset bit after begin
 uint64_t bitfield::first_null(uint64_t begin) {
   while (begin < size && test(begin)) ++begin;
   return begin;

@@ -37,5 +37,6 @@ int64_t tar_file::close() {
     x->close();
     delete x;
   }
+  pages.clear();
   return 0;
 }

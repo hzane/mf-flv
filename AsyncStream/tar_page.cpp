@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "asynchttpstream/tar_page.hpp"
+
 using dbg::log;
+
 int64_t CloseTempFile(HANDLE h);  // close and delete it
 HANDLE  CreateTempFile(const wchar_t* prefix);
 void CALLBACK PageIoCallback(PTP_CALLBACK_INSTANCE,

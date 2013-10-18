@@ -45,8 +45,8 @@ binary_task read_until_full(body_stream body, uint8_t* buf, size_t startat, size
 
 void write_stream(this_t pthis, body_stream body, uint64_t startat, uint64_t already_readed) {
   auto buf = std::shared_ptr<uint8_t>(new uint8_t[tar_slice_size]);
-  
-  // < 0, 0, >0
+
+  // < 0 : failed , 0 : end of stream, >0 : bytes
   read_until_full(body, buf.get(), 0, tar_slice_size).then([buf, pthis, startat, body, already_readed](int64_t readed) {
       lock_guard gd(pthis->lock);
       if (readed < tar_slice_size) {  // end of stream of error
@@ -59,10 +59,10 @@ void write_stream(this_t pthis, body_stream body, uint64_t startat, uint64_t alr
       if (readed < 0)
         return pthis->fail_and_close(readed);
       auto curreaded = already_readed + readed;
-      // readed isn't equal to tar_slice_size if it's the las block
+      // readed isn't equal to tar_slice_size if it's the last block
       // ignore write_result
       pthis->async_write(startat, readed, buf.get())
-          .then([buf](write_result) {      });
+          .then([buf](write_result) {      });  // use lambda to hold buf
 
       // overlapped write, not complete yet
       if (readed == tar_slice_size) {
@@ -70,19 +70,23 @@ void write_stream(this_t pthis, body_stream body, uint64_t startat, uint64_t alr
       }
   });
 }
+
 void diagnose_http_headers(http_headers const&) {
 }
 
+static wchar_t const* chrome_agent = L"Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1664.3 Safari/537.36";
+
 void pretend_chrome(http_headers headers, wchar_t const*host, wchar_t const*referer) {
   headers.add(L"accept", L"*/*");
-  headers.add(L"accept-encoding", L"deflate");
+  headers.add(L"accept-encoding", L"identity");  // not accept gzip;deflate;compress
   headers.add(L"accept-language", L"en-US,en;q=0.8,zh;q=0.6,zh-CN;q=0.4,zh-TW;q=0.2");
-  headers.add(L"connection", L"keep-alive");
-  headers.add(L"DNT", L"1");
+  headers.add(L"connection", L"close");  // we dont't reuse any connection
+  headers.add(L"DNT", L"1");  // dont track
   if (host) headers.add(L"host", host);
   if (referer) headers.add(L"referer", referer);
-  headers.add(L"user-agent", L"Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1664.3 Safari/537.36");
+  headers.add(L"user-agent", chrome_agent);
 }
+
 using utility::conversions::to_utf8string;
 
 resp_task do_request(std::wstring const&uri, request_range const&rng, http_method mthd, status_code accept) {
@@ -91,7 +95,7 @@ resp_task do_request(std::wstring const&uri, request_range const&rng, http_metho
   auto client = http_client(uri, cc);
 
   auto req = http_request(mthd);
-  pretend_chrome(req.headers(), nullptr, L"http://6pingm.com/f/126673.html");
+  pretend_chrome(req.headers(), nullptr, L"http://weibo.com");
   if(!rng.empty())
     req.headers().add(L"range", rng.to_string());
   return client.request(req).then([accept](response_task tresp)->resp_task {
@@ -103,12 +107,16 @@ resp_task do_request(std::wstring const&uri, request_range const&rng, http_metho
         return task_from_result(http_response_noex(to_utf8string(resp.reason_phrase()).c_str(), sc | make_sure_negative));
       }
       return task_from_result(http_response_noex(std::move(resp)));
-    } catch (std::exception&e) {
+    } catch (std::exception&e) {  // timeout, http-exeception, runtime-ex
       log("do-request ex: %s\n", e.what());
       return task_from_result(http_response_noex(e.what(), e_tar_httpstream_ex));
     }
   });
 }
+
+// we'v already make sure the server supports range request
+// content_length, 0: unknown, other: whole content length
+
 int64_t scatter_tar_file::async_open(std::wstring const&uri, uint64_t content_length) {
   this->content_length = content_length;
   this->url = uri;
@@ -121,6 +129,7 @@ int64_t scatter_tar_file::async_open(std::wstring const&uri, uint64_t content_le
   try_download_more();
   return 0;
 }
+
 // allow overlapped writing
 write_task scatter_tar_file::async_write(uint64_t start, uint64_t size, uint8_t const* data) {
   assert(start % tar_slice_size == 0);
@@ -151,16 +160,9 @@ read_task scatter_tar_file::async_read(uint64_t size, uint8_t* buf) {
   } else if (status.failed || status.closed) {
     x = e_tar_aborted | make_sure_negative;
   }
-  /*
-  if (status.pending_seek) {
-    log("scatter-tar-file do seek before async-read %I64u, prev-pointer: %I64u\n", status.pending_seek, read_pointer);
-    status.pending_seek = 0;
-    read_pointer = status.pending_seek;
-  }
-  */
   if (x < 0)
     return concurrency::task_from_result<read_result>(x);
-  if (content_length && read_pointer == content_length)
+  if (content_length && read_pointer >= content_length)
     return task_from_result<read_result>(e_tar_eof);
 
   status.reading = 1;  // should be reset after task complete
@@ -173,9 +175,7 @@ read_task scatter_tar_file::async_read(uint64_t size, uint8_t* buf) {
   return v;
 }
 
-// do when save data
-// complete read if any
-// try download more if cached data isn't enough
+// called when save data
 // no more than one slice a time
 void scatter_tar_file::update_write_pointer(uint64_t start, int64_t writed) {
   assert(start % tar_slice_size == 0);
@@ -196,9 +196,10 @@ void scatter_tar_file::update_write_pointer(uint64_t start, int64_t writed) {
 void scatter_tar_file::try_complete_read(){
   lock_guard gd(lock);
   if (status.tar_reading)
-    return;  // there is a pending reading
+    return;  // there is a pending file reading
   if (!status.reading)  // be reset in update-read-pointer
-    return;
+    return;  // there is a reading request
+
   if (status.failed || status.closed) {
     update_read_pointer(status.error_code | make_sure_negative);
     return;
@@ -225,28 +226,26 @@ void scatter_tar_file::update_read_pointer(read_result readed){
   status.reading = 0;
   read_op_context.read_task_event->set(readed);  // notify task complete
   read_op_context.read_task_event = nullptr;  // release task_completion_event
-  /*
-  if (status.pending_seek) {  // read_pointer will affect try-download-more, so we update it after read immediately
-    log("scatter update seek pointer after read %I64u -> %I64u\n", read_pointer, status.seek_pointer);
-    status.pending_seek = 0;
-    read_pointer = status.seek_pointer;
-  }*/
   try_download_more();
 }
 
+// when response status isn't supported
+// throw an exception
 void when_response_failed(this_t pthis, int64_t errcode, request_range r) {
   for (auto i = r.head; i <= r.tail; ++i)  // revert downloading flags
     pthis->null_slices.reset(i);
   if (++pthis->status.failed_count > max_failed_times)
     pthis->fail_and_close(errcode | make_sure_negative);
 }
+
+// unrecognized content-range
 void when_response_ok(this_t pthis, http_response &resp, request_range r) {
   auto i = resp.headers().find(L"content-range");
   auto rr = i != resp.headers().end() ? response_range_decoder().decode(i->second) : response_range();
   if (rr.empty()) {
     pthis->fail_and_close(e_tar_null_content_range);
     resp.body().close();
-  } else 
+  } else
     write_stream(pthis, resp.body(), rr.head, 0);
   if (rr.instance_size && !pthis->content_length) {
     pthis->content_length = rr.instance_size;
@@ -254,12 +253,14 @@ void when_response_ok(this_t pthis, http_response &resp, request_range r) {
     pthis->null_slices.resize(bits, content_fixed_length);
     pthis->commited_slices.resize(bits, content_fixed_length);
   }
-    
+
+  // return back undownloaded slices, normally this range is empty
   auto left = r - rr / tar_slice_size;
   for (auto i = left.head; i <= left.tail; ++i)
     pthis->null_slices.reset(i);
   pthis->try_download_more();
 }
+
 void scatter_tar_file::try_download_more(){
   lock_guard gd(lock);
   if (status.failed || status.closed )
@@ -268,14 +269,17 @@ void scatter_tar_file::try_download_more(){
     return;
   if (status.downloadings >= tar_max_downloadings || status.content_ready)
     return;
+
+  // if we cached enough
   auto x = avail_bytes_from(read_pointer, tar_max_cache_size  + tar_max_chunk_size);
   if (x > (int64_t)tar_max_cache_size)
     return;
-  // todo: stop when cached enough
+
+  // slice range
   auto rng = first_unready_range(read_pointer, tar_max_chunk_size);
   if (rng.empty())
     rng = first_unready_range(0, tar_max_chunk_size);
-  if (rng.empty()) {    
+  if (rng.empty()) {
     return;
   }
   log(L"scatter-tar-file try download slice %s\n", rng.to_string().c_str());
@@ -309,6 +313,7 @@ int64_t scatter_tar_file::avail_bytes_from(uint64_t start, uint64_t expected_byt
   return true_end - start;
 }
 
+// slice range
 request_range scatter_tar_file::first_unready_range(uint64_t start, uint64_t maxbytes) {
   lock_guard gd(lock);
   auto idx = start / tar_slice_size;
@@ -320,36 +325,12 @@ request_range scatter_tar_file::first_unready_range(uint64_t start, uint64_t max
 
 uint64_t scatter_tar_file::seek(uint64_t pos) {
   lock_guard g(lock);
-  
-  //if (status.reading) {
-  //  status.pending_seek = 1;
-  //  status.seek_pointer = pos;
-  //} else {
-    read_pointer = pos;
-  //}
+
+  read_pointer = pos;
   try_download_more();
   return pos;
 }
-scatter_tar_file_handler::result_task scatter_tar_file_handler::async_open(std::wstring  const&url) {
-  return do_request(url, request_range(0, tar_slice_size - 1), http_methods::HEAD, status_codes::PartialContent)
-    .then([url](http_response_noex resp) ->result_task {
-      scatter_handler_result v;
-      v.error = resp.code;
-      v.reason = utility::conversions::to_utf16string(resp.reason);
-      if (resp.code)
-        return task_from_result(v);
-      auto i = resp._.headers().find(L"content-range");
-      if (i != resp._.headers().end()) {
-        auto r = response_range_decoder().decode(i->second);
-        if (!r.empty()) {
-          v.value = make_shared < scatter_tar_file>();
-          v.value->async_open(url, r.instance_size);
-        }
-      }
-      resp._.body().close();
-      return task_from_result(v);
-  });
-}
+
 scatter_tar_file_handler::scheme_task
 scatter_tar_file_handler::async_check(std::wstring const&url) {
   return do_request(url, request_range(0, tar_slice_size - 1), http_methods::HEAD, status_codes::PartialContent)
@@ -363,48 +344,11 @@ scatter_tar_file_handler::async_check(std::wstring const&url) {
       auto i = resp._.headers().find(L"content-range");
       if (i != resp._.headers().end()) {
         auto r = response_range_decoder().decode(i->second);
-        if (!r.empty()) 
+        if (!r.empty())
           v.content_length = r.instance_size;
       }
       v.content_type = resp._.headers().content_type();
       resp._.body().close();
       return task_from_result(v);
   });
-}
-
-struct media_type {
-  using string = std::wstring;
-  string type;
-  string subtype;
-};
-struct media_type_decoder {
-  media_type decode(wchar_t const *ct) {
-    media_type v;
-    auto o = ct;
-    auto r = expect_type(o, v.type);
-    if (!r) r = expect_slash(o);
-    if (!r) r = expect_subtype(o, v.subtype);
-    return v;
-  }
-  int32_t expect_type(wchar_t const*&ct, std::wstring &type) {
-    auto o = ct;
-    while (*ct != 0 && (__iswcsym(*ct) || *ct == L'-')) ++ct;
-    if (*ct == 0)
-      return -1;
-    type = std::wstring(o, ct);
-    return 0;
-  }
-  int32_t expect_slash(wchar_t const*&ct) {
-    if (*ct != L'/')
-      return -1;
-    ++ct;
-    return 0;
-  }
-  int32_t expect_subtype(wchar_t const* &ct, std::wstring &subtype) {
-    return expect_type(ct, subtype);
-  }
-};
-bool scheme_check_result::accept(wchar_t const*)const {
-  auto t = media_type_decoder().decode(content_type.c_str());
-  return t.type == L"application" || t.type == L"video";
 }
